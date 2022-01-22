@@ -1,9 +1,6 @@
 package com.franny.androidmediaplayground.media
 
-import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
-import kotlinx.coroutines.delay
 import timber.log.Timber
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -12,7 +9,6 @@ import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.charset.Charset
-import java.util.*
 
 /**
  * Reference: https://docs.fileformat.com/audio/wav/
@@ -28,11 +24,13 @@ class WAVDecoder {
         val formatType: Int, // 21-22, 1 is PCM
         val channelNumber: Int, // 23-24
         val sampleRate: Int, // 25-28
-        val unknown1: Int, // 29-32, (Sample Rate * BitsPerSample * Channels) / 8.
-        val unknown2: Int, // 33-34, (BitsPerSample * Channels) / 8.1 - 8 bit mono2 - 8 bit stereo/16 bit mono4 - 16 bit stereo
+        val byteRate: Int, // 29-32, (Sample Rate * BitsPerSample * Channels) / 8.
+        val channelBitsPerSample: Int, // 33-34, (BitsPerSample * Channels) / 8. 1:8 bit mono, 2:8 bit stereo/16 bit mono; 4:16 bit stereo
         val bitsPerSample: Int, // 35-36
         val dataTag: String, // 37-40
         val dataSize: Int, // 41-44
+        val durationInSeconds: Int,
+        val bitRateKbS: Int,
     ) {
         override fun toString(): String {
             return "riff: $riff" + "\n" +
@@ -43,12 +41,13 @@ class WAVDecoder {
                     "formatType : $formatType" + "\n" +
                     "channelNumber : $channelNumber" + "\n" +
                     "sampleRate : $sampleRate" + "\n" +
-                    "unknown1 : $unknown1" + "\n" +
-                    "unknown2 : $unknown2" + "\n" +
+                    "byteRate : $byteRate" + "\n" +
+                    "channelBitsPerSample : $channelBitsPerSample" + "\n" +
                     "bitsPerSample : $bitsPerSample" + "\n" +
                     "dataTag : $dataTag" + "\n" +
-                    "dataSize : $dataSize"
-
+                    "dataSize : $dataSize" + "\n" +
+                    "durationInSeconds: $durationInSeconds" + "\n" +
+                    "bitRateKbS: $bitRateKbS"
         }
     }
 
@@ -59,7 +58,7 @@ class WAVDecoder {
         try {
             randomAccessFile = RandomAccessFile(filePath, "r")
             fileChannel = randomAccessFile.channel
-            val buffer = ByteBuffer.allocate(44)
+            val buffer = ByteBuffer.allocate(HEADER_BYTE_LENGTH)
             if (fileChannel.read(buffer) != -1) {
                 header = analyzeHeader(buffer)
             }
@@ -76,25 +75,19 @@ class WAVDecoder {
         return header
     }
 
-    private var mAudioTrack: AudioTrack? = null
-
-    fun decode(filePath: String) {
+    fun decode(filePath: String, audioTrack: AudioTrack) {
         var randomAccessFile: RandomAccessFile? = null
         var fileChannel: FileChannel? = null
         try {
             randomAccessFile = RandomAccessFile(filePath, "r")
             fileChannel = randomAccessFile.channel
-            var buffer = ByteBuffer.allocate(44)
-            if (fileChannel.read(buffer) != -1) {
-                val header = analyzeHeader(buffer)
-                createAudioTrack(header)
-                mAudioTrack!!.play()
+            audioTrack.play()
+            var buffer = ByteBuffer.allocate(1024)
+            fileChannel.position(HEADER_BYTE_LENGTH.toLong())
+            while (audioTrack.playState == AudioTrack.PLAYSTATE_PLAYING &&
+                fileChannel.read(buffer) != -1) {
+                audioTrack.write(buffer.array(), 0, buffer.array().size)
                 buffer = ByteBuffer.allocate(1024)
-                while (mAudioTrack!!.playState == AudioTrack.PLAYSTATE_PLAYING &&
-                    fileChannel.read(buffer) != -1) {
-                    mAudioTrack!!.write(buffer.array(), 0, buffer.array().size)
-                    buffer = ByteBuffer.allocate(1024)
-                }
             }
         } catch (e: FileNotFoundException) {
             Timber.w(e.stackTraceToString())
@@ -106,30 +99,6 @@ class WAVDecoder {
             fileChannel?.close()
             randomAccessFile?.close()
         }
-    }
-
-    fun stop() {
-        mAudioTrack?.stop()
-        mAudioTrack?.release()
-    }
-
-    private fun createAudioTrack(header: Header) {
-        val channel = when (header.channelNumber) {
-            1 -> AudioFormat.CHANNEL_OUT_MONO
-            2 -> AudioFormat.CHANNEL_OUT_STEREO
-            else -> AudioFormat.CHANNEL_OUT_DEFAULT
-        }
-        val minBufferSize = AudioTrack.getMinBufferSize(
-            header.sampleRate,
-            channel,
-            AudioFormat.ENCODING_PCM_16BIT
-        )
-        mAudioTrack = AudioTrack(AudioManager.STREAM_MUSIC,
-            header.sampleRate,
-            channel,
-            AudioFormat.ENCODING_PCM_16BIT,
-            minBufferSize,
-            AudioTrack.MODE_STREAM)
     }
 
     /**
@@ -164,11 +133,11 @@ class WAVDecoder {
         val sampleRateBytes = byteArrayOf(buffer[27], buffer[26], buffer[25], buffer[24])
         val sampleRate = BigInteger(sampleRateBytes).toInt()
 
-        val unknown1Bytes = byteArrayOf(buffer[31], buffer[30], buffer[29], buffer[28])
-        val unknown1 = BigInteger(unknown1Bytes).toInt()
+        val byteRateBytes = byteArrayOf(buffer[31], buffer[30], buffer[29], buffer[28])
+        val byteRate = BigInteger(byteRateBytes).toInt()
 
-        val unknown2Bytes = byteArrayOf(buffer[33], buffer[32])
-        val unknown2 = BigInteger(unknown2Bytes).toInt()
+        val channelBitsPerSampleBytes = byteArrayOf(buffer[33], buffer[32])
+        val channelBitsPerSample = BigInteger(channelBitsPerSampleBytes).toInt()
 
         val bitsPerSampleBytes = byteArrayOf(buffer[35], buffer[34])
         val bitsPerSample = BigInteger(bitsPerSampleBytes).toInt()
@@ -188,17 +157,20 @@ class WAVDecoder {
             formatType,
             channelNumber,
             sampleRate,
-            unknown1,
-            unknown2,
+            byteRate,
+            channelBitsPerSample,
             bitsPerSample,
             dataTag,
-            dataSize
-        ).also {
-            Timber.d("$it")
-        }
+            dataSize,
+            dataSize / byteRate,
+            byteRate * 8 / 1000
+        )
+//        .also {
+//            Timber.d("$it")
+//        }
     }
 
     companion object {
-        val instance = WAVDecoder()
+        const val HEADER_BYTE_LENGTH = 44
     }
 }

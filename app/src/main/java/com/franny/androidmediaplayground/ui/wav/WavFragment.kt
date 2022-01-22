@@ -1,4 +1,4 @@
-package com.franny.androidmediaplayground.ui.home
+package com.franny.androidmediaplayground.ui.wav
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -11,10 +11,9 @@ import com.franny.androidmediaplayground.R
 import com.franny.androidmediaplayground.databinding.FragmentHomeBinding
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
-class HomeFragment : Fragment() {
-    private val homeViewModel by activityViewModels<HomeViewModel>()
+class WavFragment : Fragment() {
+    private val homeViewModel by activityViewModels<WavViewModel>()
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
 

@@ -1,4 +1,4 @@
-package com.franny.androidmediaplayground.ui.home
+package com.franny.androidmediaplayground.ui.wav
 
 import android.content.Context
 import android.media.MediaPlayer
@@ -6,11 +6,12 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.franny.androidmediaplayground.R
+import com.franny.androidmediaplayground.media.AudioTrackWrapper
 import com.franny.androidmediaplayground.media.WAVDecoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class HomeViewModel : ViewModel() {
+class WavViewModel : ViewModel() {
     private val _isPlayingByMediaPlayer = MutableLiveData<Boolean>(false)
     val isPlayingByMediaPlayer: LiveData<Boolean>
         get() = _isPlayingByMediaPlayer
@@ -25,13 +26,25 @@ class HomeViewModel : ViewModel() {
 
     private var mediaPlayer: MediaPlayer? = null
 
+    private var audioTrackWrapper: AudioTrackWrapper = AudioTrackWrapper()
+    private var wavDecoder: WAVDecoder = WAVDecoder()
+
     private val mediaPlayerOnCompletionListener = MediaPlayer.OnCompletionListener {
         _isPlayingByMediaPlayer.postValue(false)
         mediaPlayer?.release()
     }
 
+    private val audioTrackCallback = object : AudioTrackWrapper.Callback {
+        override fun onStart() {
+            _isPlayingByAudioTrack.postValue(true)
+        }
+
+        override fun onStop() {
+            _isPlayingByAudioTrack.postValue(false)
+        }
+    }
+
     fun getWavHeader() {
-        val wavDecoder = WAVDecoder()
         _wavHeader.postValue(wavDecoder.decodeHeader(WAV_FILE_PATH).toString())
     }
 
@@ -67,20 +80,28 @@ class HomeViewModel : ViewModel() {
     }
 
     private suspend fun playByAudioTrack() {
-        _isPlayingByAudioTrack.postValue(true)
-        withContext(Dispatchers.IO) {
-            WAVDecoder.instance.decode(WAV_FILE_PATH)
+        audioTrackWrapper.setCallback(audioTrackCallback)
+        wavDecoder.decodeHeader(WAV_FILE_PATH)?.let { header ->
+            withContext(Dispatchers.IO) {
+                audioTrackWrapper.startPlay()
+                wavDecoder.decode(WAV_FILE_PATH, audioTrackWrapper.initAudioTrack(header))
+            }
         }
     }
 
     private fun pauseByAudioTrack() {
-        _isPlayingByAudioTrack.postValue(false)
-        WAVDecoder.instance.stop()
+        audioTrackWrapper.stopPlay()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        audioTrackWrapper.release()
     }
 
     companion object {
-        private const val WAV_FILE_PATH = "/sdcard/Music/StarWars60.wav"
+        private const val WAV_BIG_FILE_PATH = "/sdcard/Music/StarWars60.wav"
         private const val WAV_SMALL_FILE_PATH = "/sdcard/Music/starwars3.wav"
         private const val WAV_SMALL_FILE_PATH2 = "/sdcard/Music/M1F1-Alaw-AFsp.wav"
+        private const val WAV_FILE_PATH = WAV_BIG_FILE_PATH
     }
 }
