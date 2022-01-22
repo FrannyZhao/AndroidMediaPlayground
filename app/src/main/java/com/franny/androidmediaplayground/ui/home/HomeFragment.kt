@@ -9,6 +9,9 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
 import com.franny.androidmediaplayground.R
 import com.franny.androidmediaplayground.databinding.FragmentHomeBinding
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class HomeFragment : Fragment() {
     private val homeViewModel by activityViewModels<HomeViewModel>()
@@ -25,11 +28,25 @@ class HomeFragment : Fragment() {
             homeViewModel.togglePLayPauseByMediaPlayer(context!!)
         }
         binding.playByAudiotrackButton.setOnClickListener {
-            homeViewModel.togglePlayPauseByAudioTrack(context!!)
+            MainScope().launch {
+                homeViewModel.togglePlayPauseByAudioTrack()
+            }
         }
+        homeViewModel.wavHeader.observe(viewLifecycleOwner, wavHeaderObserver)
         homeViewModel.isPlayingByMediaPlayer.observe(viewLifecycleOwner, playByMediaPlayerObserver)
         homeViewModel.isPlayingByAudioTrack.observe(viewLifecycleOwner, playByAudioTrackObserver)
         return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        homeViewModel.getWavHeader()
+    }
+
+    private val wavHeaderObserver = Observer<String> {
+        it.also {
+            binding.wavInfoTextview.text = it
+        }
     }
 
     private val playByMediaPlayerObserver = Observer<Boolean> {

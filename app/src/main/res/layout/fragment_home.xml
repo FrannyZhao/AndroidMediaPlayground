@@ -15,8 +15,23 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.3"
+        app:layout_constraintVertical_bias="0.1"
         android:text="@string/play_by_mediaplayer"/>
+
+    <TextView
+        android:id="@+id/wav_info_textview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintWidth_default="percent"
+        app:layout_constraintHeight_default="spread"
+        app:layout_constraintWidth_percent="0.8"
+        app:layout_constraintTop_toBottomOf="@+id/play_by_mediaplayer_button"
+        app:layout_constraintBottom_toTopOf="@+id/play_by_audiotrack_button"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0"
+        android:textColor="@android:color/black"
+        android:gravity="center_vertical"/>
 
     <Button
         android:id="@+id/play_by_audiotrack_button"
@@ -26,6 +41,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.6"
+        app:layout_constraintVertical_bias="0.9"
         android:text="@string/play_by_audiotrack"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

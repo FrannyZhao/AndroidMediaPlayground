@@ -1,5 +1,6 @@
 package com.franny.androidmediaplayground
 
+import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Bundle
 import android.view.Menu
 import com.google.android.material.snackbar.Snackbar
@@ -40,6 +41,8 @@ class MainActivity : AppCompatActivity() {
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
+
+        requestPermission()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -51,5 +54,19 @@ class MainActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+    }
+
+    private fun requestPermission() {
+        val permissions = arrayOf(
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.STORAGE",
+            "android.permission.MANAGE_EXTERNAL_STORAGE"
+        )
+        permissions.forEach {
+            if (checkSelfPermission(it) != PERMISSION_GRANTED) {
+                requestPermissions(permissions, 1)
+            }
+        }
     }
 }
